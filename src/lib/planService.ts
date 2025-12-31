@@ -171,13 +171,10 @@ export async function createPlan(weekId: string, plan: TradePlan): Promise<void>
     await initWeekReportContent(documentId, weekId);
 
     // 3. 找到插入位置
-    const { parentId, afterBlockId } = await findTradeRecordInsertPosition(documentId);
+    const { parentId } = await findTradeRecordInsertPosition(documentId);
 
     // 4. 转换为 blocks 并写入
     const blocks = planToBlocks(plan);
-
-    // 如果有「交易记录」标题，在其后插入
-    // 飞书 API 的 index 需要计算，这里简化处理，直接追加
     await appendBlocks(documentId, parentId, blocks);
 
     console.log('Plan written to Feishu document:', documentId);

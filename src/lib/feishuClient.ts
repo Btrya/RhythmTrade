@@ -1,6 +1,4 @@
-import { loadAuth, isTokenExpired } from './storage';
-
-const FEISHU_API_BASE = 'https://open.feishu.cn/open-apis';
+import { loadAuth, isTokenExpired, updateTokens } from './storage';
 
 export class FeishuApiError extends Error {
   constructor(
@@ -25,7 +23,7 @@ async function getAccessToken(): Promise<string> {
     throw new FeishuApiError(401, 'Not authenticated');
   }
 
-  if (isTokenExpired()) {
+  if (isTokenExpired() && stored.refreshToken) {
     // 尝试刷新 token
     const response = await fetch('/api/auth/refresh', {
       method: 'POST',
@@ -38,25 +36,32 @@ async function getAccessToken(): Promise<string> {
     }
 
     const data = await response.json();
+    updateTokens(data);
     return data.access_token;
   }
 
   return stored.accessToken;
 }
 
+/**
+ * 通过 Vercel 代理调用飞书 API
+ */
 export async function feishuFetch<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const accessToken = await getAccessToken();
+  const userToken = await getAccessToken();
 
-  const response = await fetch(`${FEISHU_API_BASE}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-      ...options.headers,
-    },
+  // 通过代理调用飞书 API
+  const response = await fetch('/api/feishu/proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      endpoint,
+      method: options.method || 'GET',
+      body: options.body ? JSON.parse(options.body as string) : undefined,
+      userToken,
+    }),
   });
 
   const data: FeishuResponse<T> = await response.json();
@@ -90,18 +95,15 @@ export async function searchFolder(
   name: string
 ): Promise<string | null> {
   try {
-    const data = await feishuFetch<SearchResult>(
-      `/drive/v1/files/search`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          search_key: name,
-          folder_tokens: [folderToken],
-          obj_types: ['folder'],
-          count: 10,
-        }),
-      }
-    );
+    const data = await feishuFetch<SearchResult>(`/drive/v1/files/search`, {
+      method: 'POST',
+      body: JSON.stringify({
+        search_key: name,
+        folder_tokens: [folderToken],
+        obj_types: ['folder'],
+        count: 10,
+      }),
+    });
 
     if (data.tokens && data.tokens.length > 0) {
       return data.tokens[0].obj_token;
@@ -112,10 +114,7 @@ export async function searchFolder(
   }
 }
 
-export async function createFolder(
-  parentToken: string,
-  name: string
-): Promise<string> {
+export async function createFolder(parentToken: string, name: string): Promise<string> {
   const data = await feishuFetch<FolderMeta>('/drive/v1/files/create_folder', {
     method: 'POST',
     body: JSON.stringify({
@@ -158,20 +157,14 @@ interface FileListResult {
   next_page_token?: string;
 }
 
-export async function createDocument(
-  folderToken: string,
-  title: string
-): Promise<string> {
-  const data = await feishuFetch<{ document: DocMeta }>(
-    '/docx/v1/documents',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        folder_token: folderToken,
-        title,
-      }),
-    }
-  );
+export async function createDocument(folderToken: string, title: string): Promise<string> {
+  const data = await feishuFetch<{ document: DocMeta }>('/docx/v1/documents', {
+    method: 'POST',
+    body: JSON.stringify({
+      folder_token: folderToken,
+      title,
+    }),
+  });
   return data.document.document_id;
 }
 
@@ -185,9 +178,7 @@ export async function listFolderFiles(folderToken: string): Promise<FileListItem
       params.set('page_token', pageToken);
     }
 
-    const data = await feishuFetch<FileListResult>(
-      `/drive/v1/files?${params.toString()}`
-    );
+    const data = await feishuFetch<FileListResult>(`/drive/v1/files?${params.toString()}`);
 
     allFiles.push(...data.files);
     pageToken = data.has_more ? data.next_page_token : undefined;
@@ -205,10 +196,7 @@ export async function findDocumentByTitle(
   return doc ? doc.token : null;
 }
 
-export async function getOrCreateDocument(
-  folderToken: string,
-  title: string
-): Promise<string> {
+export async function getOrCreateDocument(folderToken: string, title: string): Promise<string> {
   const existingId = await findDocumentByTitle(folderToken, title);
   if (existingId) {
     return existingId;
