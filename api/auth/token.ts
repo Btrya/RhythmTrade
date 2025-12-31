@@ -19,8 +19,37 @@ interface FeishuTokenResponse {
   };
 }
 
+// 获取 app_access_token
+async function getAppAccessToken(): Promise<string> {
+  const response = await fetch(
+    'https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        app_id: FEISHU_APP_ID,
+        app_secret: FEISHU_APP_SECRET,
+      }),
+    }
+  );
+
+  const data = await response.json();
+  if (data.code !== 0) {
+    throw new Error(`Failed to get app_access_token: ${data.msg}`);
+  }
+  return data.app_access_token;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // 只允许 POST
+  // 允许 CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -32,22 +61,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (!FEISHU_APP_ID || !FEISHU_APP_SECRET) {
-    return res.status(500).json({ error: 'Missing Feishu app credentials' });
+    return res.status(500).json({
+      error: 'Missing Feishu app credentials',
+      hasAppId: !!FEISHU_APP_ID,
+      hasSecret: !!FEISHU_APP_SECRET,
+    });
   }
 
   try {
+    // 先获取 app_access_token
+    const appAccessToken = await getAppAccessToken();
+
     // 用 code 换取 user_access_token
     const response = await fetch(
-      'https://open.feishu.cn/open-apis/authen/v1/oidc/access_token',
+      'https://open.feishu.cn/open-apis/authen/v1/access_token',
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${appAccessToken}`,
         },
         body: JSON.stringify({
           grant_type: 'authorization_code',
-          client_id: FEISHU_APP_ID,
-          client_secret: FEISHU_APP_SECRET,
           code,
         }),
       }
@@ -55,10 +90,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const data: FeishuTokenResponse = await response.json();
 
+    console.log('Feishu token response:', JSON.stringify(data, null, 2));
+
     if (data.code !== 0 || !data.data) {
       return res.status(400).json({
         error: 'Failed to exchange token',
-        message: data.msg,
+        feishu_code: data.code,
+        feishu_msg: data.msg,
       });
     }
 
@@ -77,6 +115,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (error) {
     console.error('Token exchange error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 }

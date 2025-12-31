@@ -15,7 +15,36 @@ interface FeishuRefreshResponse {
   };
 }
 
+// 获取 app_access_token
+async function getAppAccessToken(): Promise<string> {
+  const response = await fetch(
+    'https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        app_id: FEISHU_APP_ID,
+        app_secret: FEISHU_APP_SECRET,
+      }),
+    }
+  );
+
+  const data = await response.json();
+  if (data.code !== 0) {
+    throw new Error(`Failed to get app_access_token: ${data.msg}`);
+  }
+  return data.app_access_token;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -31,17 +60,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const appAccessToken = await getAppAccessToken();
+
     const response = await fetch(
-      'https://open.feishu.cn/open-apis/authen/v1/oidc/refresh_access_token',
+      'https://open.feishu.cn/open-apis/authen/v1/refresh_access_token',
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${appAccessToken}`,
         },
         body: JSON.stringify({
           grant_type: 'refresh_token',
-          client_id: FEISHU_APP_ID,
-          client_secret: FEISHU_APP_SECRET,
           refresh_token,
         }),
       }
@@ -52,7 +82,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (data.code !== 0 || !data.data) {
       return res.status(400).json({
         error: 'Failed to refresh token',
-        message: data.msg,
+        feishu_code: data.code,
+        feishu_msg: data.msg,
       });
     }
 
@@ -64,6 +95,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (error) {
     console.error('Token refresh error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 }
