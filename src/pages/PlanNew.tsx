@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getCurrentWeekId } from '../lib/week';
-import { addLocalPlan } from '../lib/planStorage';
+import { createPlan } from '../lib/planService';
 import type { TradePlan } from '../types/plan';
 import PlanForm, { type PlanFormData } from '../components/PlanForm';
 
@@ -34,10 +34,8 @@ export default function PlanNew() {
         updatedAt: now,
       };
 
-      // 保存到本地存储
-      addLocalPlan(weekId, plan);
-
-      // TODO: 同步写入飞书文档
+      // 保存到本地 + 写入飞书文档
+      await createPlan(weekId, plan);
 
       navigate(`/week/${weekId}`);
     } finally {
