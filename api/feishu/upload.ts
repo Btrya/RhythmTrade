@@ -8,10 +8,10 @@ const FEISHU_API_BASE = 'https://open.feishu.cn/open-apis';
  * Body: JSON
  *   - imageData: base64 图片数据
  *   - file_name: 文件名
- *   - parent_type: "docx_image"
- *   - parent_node: image block id
  * Headers:
  *   - Authorization: Bearer <user_access_token>
+ *
+ * 返回: { code: 0, data: { file_token: "xxx" } }
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -32,11 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { file_name, parent_type, parent_node, imageData } = req.body;
-
-    if (!parent_node) {
-      return res.status(400).json({ error: 'Missing parent_node' });
-    }
+    const { file_name, imageData } = req.body;
 
     if (!imageData) {
       return res.status(400).json({ error: 'Please provide imageData as base64' });
@@ -48,6 +44,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 构建 multipart/form-data 请求
     const boundary = '----WebKitFormBoundary' + Math.random().toString(36).slice(2);
     const fileName = file_name || 'image.png';
+
+    // 计算文件大小
+    const fileSize = binaryData.length;
 
     // 手动构建 multipart body
     const parts: Buffer[] = [];
@@ -72,21 +71,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       )
     );
 
-    // parent_type 部分
+    // parent_type 部分 - 使用 docx_file 表示文档素材
     parts.push(
       Buffer.from(
         `--${boundary}\r\n` +
           `Content-Disposition: form-data; name="parent_type"\r\n\r\n` +
-          `${parent_type || 'docx_image'}\r\n`
+          `docx_file\r\n`
       )
     );
 
-    // parent_node 部分
+    // size 部分
     parts.push(
       Buffer.from(
         `--${boundary}\r\n` +
-          `Content-Disposition: form-data; name="parent_node"\r\n\r\n` +
-          `${parent_node}\r\n`
+          `Content-Disposition: form-data; name="size"\r\n\r\n` +
+          `${fileSize}\r\n`
       )
     );
 
@@ -94,6 +93,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     parts.push(Buffer.from(`--${boundary}--\r\n`));
 
     const body = Buffer.concat(parts as Uint8Array[]);
+
+    console.log('[upload] Uploading image, size:', fileSize, 'bytes');
 
     const response = await fetch(`${FEISHU_API_BASE}/drive/v1/medias/upload_all`, {
       method: 'POST',
@@ -105,10 +106,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     const data = await response.json();
-    console.log('Feishu upload response:', JSON.stringify(data));
+    console.log('[upload] Feishu response:', JSON.stringify(data));
+
     return res.status(200).json(data);
   } catch (error) {
-    console.error('Feishu upload error:', error);
+    console.error('[upload] Error:', error);
     return res.status(500).json({
       error: 'Upload error',
       message: error instanceof Error ? error.message : 'Unknown error',

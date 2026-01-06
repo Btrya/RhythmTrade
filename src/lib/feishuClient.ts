@@ -204,6 +204,7 @@ export interface DocBlock {
   callout?: { elements: DocElement[] };
   divider?: object;
   table?: { property: { row_size: number; column_size: number }; cells: string[][] };
+  image?: { token?: string; width?: number; height?: number };
 }
 
 export interface DocElement {
@@ -309,34 +310,12 @@ export async function deleteBlock(
 // ==================== 图片上传 ====================
 
 /**
- * 上传图片到飞书文档
- * 步骤：
- * 1. 先创建空的 image block
- * 2. 然后上传图片到该 block
+ * 上传图片到飞书素材库
+ * 返回 file_token 用于创建图片 block
  */
-export async function uploadImageToDocument(
-  documentId: string,
-  parentBlockId: string,
-  imageData: string, // base64 data URL
-  fileName: string
-): Promise<string> {
-  // 1. 创建空的 image block
-  const createResult = await appendBlocks(documentId, parentBlockId, [
-    {
-      block_type: 27, // image block
-      image: {},
-    },
-  ]);
-
-  const imageBlockId = createResult[0]?.block_id;
-  if (!imageBlockId) {
-    throw new Error('Failed to create image block');
-  }
-
-  // 2. 上传图片到该 block
+async function uploadImageToMedia(imageData: string, fileName: string): Promise<string> {
   const userToken = await getAccessToken();
 
-  // 通过代理上传 (使用 JSON 发送 base64 数据)
   const response = await fetch('/api/feishu/upload', {
     method: 'POST',
     headers: {
@@ -346,8 +325,6 @@ export async function uploadImageToDocument(
     body: JSON.stringify({
       imageData,
       file_name: fileName,
-      parent_type: 'docx_image',
-      parent_node: imageBlockId,
     }),
   });
 
@@ -357,9 +334,54 @@ export async function uploadImageToDocument(
   }
 
   const result = await response.json();
+  console.log('[uploadImageToMedia] Response:', JSON.stringify(result));
+
   if (result.code !== 0) {
     throw new Error(`Upload failed: ${result.msg}`);
   }
 
+  // 返回 file_token
+  const fileToken = result.data?.file_token;
+  if (!fileToken) {
+    throw new Error('No file_token in response');
+  }
+
+  return fileToken;
+}
+
+/**
+ * 上传图片到飞书文档
+ * 步骤：
+ * 1. 先上传图片到素材库，获取 file_token
+ * 2. 然后创建包含 file_token 的 image block
+ */
+export async function uploadImageToDocument(
+  documentId: string,
+  parentBlockId: string,
+  imageData: string, // base64 data URL
+  fileName: string
+): Promise<string> {
+  // 1. 上传图片到素材库，获取 file_token
+  console.log('[uploadImageToDocument] Uploading image to media...');
+  const fileToken = await uploadImageToMedia(imageData, fileName);
+  console.log('[uploadImageToDocument] Got file_token:', fileToken);
+
+  // 2. 创建包含 file_token 的 image block
+  console.log('[uploadImageToDocument] Creating image block with token...');
+  const createResult = await appendBlocks(documentId, parentBlockId, [
+    {
+      block_type: 27, // image block
+      image: {
+        token: fileToken,
+      },
+    },
+  ]);
+
+  const imageBlockId = createResult[0]?.block_id;
+  if (!imageBlockId) {
+    throw new Error('Failed to create image block');
+  }
+
+  console.log('[uploadImageToDocument] Image block created:', imageBlockId);
   return imageBlockId;
 }
