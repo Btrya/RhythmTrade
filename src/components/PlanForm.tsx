@@ -36,17 +36,7 @@ const defaultData: PlanFormData = {
 };
 
 const TIME_FRAMES: TimeFrame[] = [
-  '1min',
-  '5min',
-  '15min',
-  '30min',
-  '1h',
-  '4h',
-  '1day',
-  '1week',
-  '1month',
-  '3month',
-  '12month',
+  '1min', '5min', '15min', '30min', '1h', '4h', '1day', '1week', '1month', '3month', '12month',
 ];
 
 export default function PlanForm({
@@ -63,39 +53,32 @@ export default function PlanForm({
   const [errors, setErrors] = useState<Partial<Record<keyof PlanFormData, string>>>({});
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // 处理图片粘贴
-  const handlePaste = useCallback(
-    (e: React.ClipboardEvent) => {
-      const items = e.clipboardData.items;
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
 
-      for (const item of items) {
-        if (item.type.startsWith('image/')) {
-          e.preventDefault();
-          const file = item.getAsFile();
-          if (!file) continue;
-
-          // 转换为 base64
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const base64 = event.target?.result as string;
-            const newImage: EntryImage = {
-              id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-              url: base64,
-            };
-            setData((prev) => ({
-              ...prev,
-              entryImages: [...prev.entryImages, newImage],
-            }));
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64 = event.target?.result as string;
+          const newImage: EntryImage = {
+            id: `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            url: base64,
           };
-          reader.readAsDataURL(file);
-          break;
-        }
+          setData((prev) => ({
+            ...prev,
+            entryImages: [...prev.entryImages, newImage],
+          }));
+        };
+        reader.readAsDataURL(file);
+        break;
       }
-    },
-    []
-  );
+    }
+  }, []);
 
-  // 删除图片
   const removeImage = useCallback((imageId: string) => {
     setData((prev) => ({
       ...prev,
@@ -122,26 +105,17 @@ export default function PlanForm({
       newErrors.takeProfit = '请输入有效的止盈价';
     }
 
-    // 校验止损止盈逻辑
     const entry = Number(data.plannedEntry);
     const sl = Number(data.stopLoss);
     const tp = Number(data.takeProfit);
 
     if (!isNaN(entry) && !isNaN(sl) && !isNaN(tp)) {
       if (data.direction === 'long') {
-        if (sl >= entry) {
-          newErrors.stopLoss = '做多时止损应低于入场价';
-        }
-        if (tp <= entry) {
-          newErrors.takeProfit = '做多时止盈应高于入场价';
-        }
+        if (sl >= entry) newErrors.stopLoss = '做多时止损应低于入场价';
+        if (tp <= entry) newErrors.takeProfit = '做多时止盈应高于入场价';
       } else {
-        if (sl <= entry) {
-          newErrors.stopLoss = '做空时止损应高于入场价';
-        }
-        if (tp >= entry) {
-          newErrors.takeProfit = '做空时止盈应低于入场价';
-        }
+        if (sl <= entry) newErrors.stopLoss = '做空时止损应高于入场价';
+        if (tp >= entry) newErrors.takeProfit = '做空时止盈应低于入场价';
       }
     }
 
@@ -163,159 +137,194 @@ export default function PlanForm({
     }
   };
 
+  // 计算盈亏比预览
+  const riskRewardPreview = () => {
+    const entry = Number(data.plannedEntry);
+    const sl = Number(data.stopLoss);
+    const tp = Number(data.takeProfit);
+    if (isNaN(entry) || isNaN(sl) || isNaN(tp) || entry === 0) return null;
+    const risk = Math.abs(entry - sl);
+    const reward = Math.abs(tp - entry);
+    if (risk === 0) return null;
+    return (reward / risk).toFixed(2);
+  };
+
+  const rrRatio = riskRewardPreview();
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-8">
       {/* 标的 */}
       <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">
-          标的 <span className="text-red-400">*</span>
+        <label className="block text-sm font-medium text-[#94a3b8] mb-2">
+          交易标的 <span className="text-[#ff3366]">*</span>
         </label>
         <input
           type="text"
           value={data.symbol}
           onChange={(e) => updateField('symbol', e.target.value.toUpperCase())}
-          placeholder="如 BTC、ETH、AAPL"
-          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+          placeholder="BTC / ETH / AAPL / SPY"
+          className="crypto-input w-full px-4 py-3 rounded-xl text-lg font-medium"
         />
-        {errors.symbol && <p className="mt-1 text-sm text-red-400">{errors.symbol}</p>}
+        {errors.symbol && <p className="mt-2 text-sm text-[#ff3366]">{errors.symbol}</p>}
       </div>
 
       {/* 方向和时间周期 */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            方向 <span className="text-red-400">*</span>
+          <label className="block text-sm font-medium text-[#94a3b8] mb-2">
+            交易方向 <span className="text-[#ff3366]">*</span>
           </label>
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button
               type="button"
               onClick={() => updateField('direction', 'long')}
-              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+              className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all duration-300 ${
                 data.direction === 'long'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  ? 'bg-[#00ff88]/20 text-[#00ff88] border-2 border-[#00ff88]/50 shadow-[0_0_20px_rgba(0,255,136,0.3)]'
+                  : 'bg-[#111827] text-[#64748b] border-2 border-transparent hover:border-[#ffffff10]'
               }`}
             >
-              做多
+              <span className="flex items-center justify-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                做多
+              </span>
             </button>
             <button
               type="button"
               onClick={() => updateField('direction', 'short')}
-              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+              className={`flex-1 py-3 px-4 rounded-xl font-semibold transition-all duration-300 ${
                 data.direction === 'short'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  ? 'bg-[#ff3366]/20 text-[#ff3366] border-2 border-[#ff3366]/50 shadow-[0_0_20px_rgba(255,51,102,0.3)]'
+                  : 'bg-[#111827] text-[#64748b] border-2 border-transparent hover:border-[#ffffff10]'
               }`}
             >
-              做空
+              <span className="flex items-center justify-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+                做空
+              </span>
             </button>
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            时间周期 <span className="text-red-400">*</span>
+          <label className="block text-sm font-medium text-[#94a3b8] mb-2">
+            时间周期 <span className="text-[#ff3366]">*</span>
           </label>
           <select
             value={data.timeFrame}
             onChange={(e) => updateField('timeFrame', e.target.value as TimeFrame)}
-            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+            className="crypto-input w-full px-4 py-3 rounded-xl appearance-none cursor-pointer"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '20px' }}
           >
             {TIME_FRAMES.map((tf) => (
-              <option key={tf} value={tf}>
-                {TIME_FRAME_LABELS[tf]}
-              </option>
+              <option key={tf} value={tf}>{TIME_FRAME_LABELS[tf]}</option>
             ))}
           </select>
         </div>
       </div>
 
       {/* 价格信息 */}
-      <div className="grid grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            入场价 <span className="text-red-400">*</span>
-          </label>
-          <input
-            type="number"
-            step="any"
-            value={data.plannedEntry}
-            onChange={(e) => updateField('plannedEntry', e.target.value)}
-            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
-          />
-          {errors.plannedEntry && (
-            <p className="mt-1 text-sm text-red-400">{errors.plannedEntry}</p>
-          )}
+      <div>
+        <label className="block text-sm font-medium text-[#94a3b8] mb-4">
+          价格设置 <span className="text-[#ff3366]">*</span>
+        </label>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-[#111827]/50 rounded-xl p-4 border border-[#ffffff08]">
+            <div className="text-xs text-[#64748b] uppercase tracking-wider mb-2">入场价</div>
+            <input
+              type="number"
+              step="any"
+              value={data.plannedEntry}
+              onChange={(e) => updateField('plannedEntry', e.target.value)}
+              placeholder="0.00"
+              className="w-full bg-transparent text-xl font-bold focus:outline-none number-ticker"
+            />
+            {errors.plannedEntry && <p className="mt-2 text-xs text-[#ff3366]">{errors.plannedEntry}</p>}
+          </div>
+          <div className="bg-[#111827]/50 rounded-xl p-4 border border-[#ff3366]/20">
+            <div className="text-xs text-[#ff3366] uppercase tracking-wider mb-2">止损价</div>
+            <input
+              type="number"
+              step="any"
+              value={data.stopLoss}
+              onChange={(e) => updateField('stopLoss', e.target.value)}
+              placeholder="0.00"
+              className="w-full bg-transparent text-xl font-bold text-[#ff3366] focus:outline-none number-ticker"
+            />
+            {errors.stopLoss && <p className="mt-2 text-xs text-[#ff3366]">{errors.stopLoss}</p>}
+          </div>
+          <div className="bg-[#111827]/50 rounded-xl p-4 border border-[#00ff88]/20">
+            <div className="text-xs text-[#00ff88] uppercase tracking-wider mb-2">止盈价</div>
+            <input
+              type="number"
+              step="any"
+              value={data.takeProfit}
+              onChange={(e) => updateField('takeProfit', e.target.value)}
+              placeholder="0.00"
+              className="w-full bg-transparent text-xl font-bold text-[#00ff88] focus:outline-none number-ticker"
+            />
+            {errors.takeProfit && <p className="mt-2 text-xs text-[#ff3366]">{errors.takeProfit}</p>}
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            止损价 <span className="text-red-400">*</span>
-          </label>
-          <input
-            type="number"
-            step="any"
-            value={data.stopLoss}
-            onChange={(e) => updateField('stopLoss', e.target.value)}
-            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
-          />
-          {errors.stopLoss && <p className="mt-1 text-sm text-red-400">{errors.stopLoss}</p>}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            止盈价 <span className="text-red-400">*</span>
-          </label>
-          <input
-            type="number"
-            step="any"
-            value={data.takeProfit}
-            onChange={(e) => updateField('takeProfit', e.target.value)}
-            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
-          />
-          {errors.takeProfit && (
-            <p className="mt-1 text-sm text-red-400">{errors.takeProfit}</p>
-          )}
-        </div>
+
+        {/* 盈亏比预览 */}
+        {rrRatio && (
+          <div className="mt-4 flex items-center gap-2 text-sm">
+            <span className="text-[#64748b]">盈亏比:</span>
+            <span className={`font-bold ${Number(rrRatio) >= 2 ? 'text-[#00ff88]' : Number(rrRatio) >= 1 ? 'text-[#fbbf24]' : 'text-[#ff3366]'}`}>
+              1:{rrRatio}
+            </span>
+            {Number(rrRatio) >= 2 && <span className="text-[#00ff88] text-xs">优秀</span>}
+            {Number(rrRatio) < 1 && <span className="text-[#ff3366] text-xs">风险过高</span>}
+          </div>
+        )}
       </div>
 
       {/* 进场理由 */}
       <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">
-          进场理由 <span className="text-red-400">*</span>
+        <label className="block text-sm font-medium text-[#94a3b8] mb-2">
+          进场理由 <span className="text-[#ff3366]">*</span>
         </label>
-        <textarea
-          ref={textareaRef}
-          value={data.entryReason}
-          onChange={(e) => updateField('entryReason', e.target.value)}
-          onPaste={handlePaste}
-          placeholder="技术面/基本面/消息面，写清楚你的交易逻辑&#10;&#10;提示：可以直接粘贴截图（Ctrl+V / Cmd+V）"
-          rows={4}
-          className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 resize-none"
-        />
-        {errors.entryReason && (
-          <p className="mt-1 text-sm text-red-400">{errors.entryReason}</p>
-        )}
+        <div className="relative">
+          <textarea
+            ref={textareaRef}
+            value={data.entryReason}
+            onChange={(e) => updateField('entryReason', e.target.value)}
+            onPaste={handlePaste}
+            placeholder="详细描述你的交易逻辑：技术形态、支撑阻力、指标信号、市场情绪...&#10;&#10;💡 提示：可以直接粘贴截图 (Ctrl+V / Cmd+V)"
+            rows={5}
+            className="crypto-input w-full px-4 py-3 rounded-xl resize-none text-sm leading-relaxed"
+          />
+          {errors.entryReason && <p className="mt-2 text-sm text-[#ff3366]">{errors.entryReason}</p>}
+        </div>
 
-        {/* 图片预览区域 */}
+        {/* 图片预览 */}
         {data.entryImages.length > 0 && (
-          <div className="mt-3 space-y-2">
-            <p className="text-sm text-slate-400">
-              已添加 {data.entryImages.length} 张图片：
-            </p>
+          <div className="mt-4">
+            <div className="text-xs text-[#64748b] mb-2">
+              已添加 {data.entryImages.length} 张截图
+            </div>
             <div className="grid grid-cols-2 gap-3">
               {data.entryImages.map((img) => (
-                <div key={img.id} className="relative group">
+                <div key={img.id} className="relative group rounded-xl overflow-hidden border border-[#ffffff08]">
                   <img
                     src={img.url}
                     alt="进场理由截图"
-                    className="w-full h-32 object-cover rounded-lg border border-slate-600"
+                    className="w-full h-36 object-cover"
                   />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                   <button
                     type="button"
                     onClick={() => removeImage(img.id)}
-                    className="absolute top-2 right-2 w-6 h-6 bg-red-600 hover:bg-red-700 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="删除图片"
+                    className="absolute top-2 right-2 w-8 h-8 bg-[#ff3366] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all transform scale-75 group-hover:scale-100"
                   >
-                    <span className="text-white text-sm">×</span>
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                   </button>
                 </div>
               ))}
@@ -325,48 +334,55 @@ export default function PlanForm({
       </div>
 
       {/* 可选字段 */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-[#64748b] mb-2">
             仓位大小（可选）
           </label>
           <input
             type="text"
             value={data.positionSize}
             onChange={(e) => updateField('positionSize', e.target.value)}
-            placeholder="如 10%、0.1 BTC"
-            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            placeholder="10% / 0.1 BTC / 100股"
+            className="crypto-input w-full px-4 py-3 rounded-xl"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-[#64748b] mb-2">
             风险备注（可选）
           </label>
           <input
             type="text"
             value={data.riskNote}
             onChange={(e) => updateField('riskNote', e.target.value)}
-            placeholder="潜在风险点"
-            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+            placeholder="需要关注的风险点"
+            className="crypto-input w-full px-4 py-3 rounded-xl"
           />
         </div>
       </div>
 
       {/* 操作按钮 */}
-      <div className="flex gap-4 pt-4">
+      <div className="flex gap-4 pt-6 border-t border-[#ffffff08]">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 py-3 px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium transition-colors"
+          className="flex-1 py-3.5 px-6 bg-[#1a1f2e] hover:bg-[#242b3d] text-[#94a3b8] rounded-xl font-medium transition-all"
         >
           取消
         </button>
         <button
           type="submit"
           disabled={isSubmitting}
-          className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+          className="flex-1 neon-button py-3.5 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isSubmitting ? '保存中...' : '保存计划'}
+          {isSubmitting ? (
+            <span className="flex items-center justify-center gap-2">
+              <div className="w-5 h-5 border-2 border-[#0a0e17] border-t-transparent rounded-full animate-spin" />
+              保存中...
+            </span>
+          ) : (
+            '保存计划'
+          )}
         </button>
       </div>
     </form>
