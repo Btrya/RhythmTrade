@@ -1,8 +1,10 @@
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { formatWeekRange, getCurrentWeekId } from '../lib/week';
 import { getLocalPlans } from '../lib/planStorage';
-import { calculateStats } from '../types/plan';
+import { syncPlans } from '../lib/syncService';
+import { calculateStats, type TradePlan } from '../types/plan';
 import StatsCard from '../components/StatsCard';
 import PlanCard from '../components/PlanCard';
 
@@ -15,8 +17,37 @@ export default function Week() {
   const displayWeekId = weekId || currentWeekId;
   const dateRange = formatWeekRange(displayWeekId);
 
-  // 从本地存储读取计划（后续会改为从飞书读取）
-  const plans = getLocalPlans(displayWeekId);
+  const [plans, setPlans] = useState<TradePlan[]>([]);
+  const [isSyncing, setSyncing] = useState(false);
+  const [lastSyncResult, setLastSyncResult] = useState<string | null>(null);
+
+  // 加载计划（先读本地，然后同步）
+  const loadPlans = useCallback(async () => {
+    // 先显示本地数据
+    setPlans(getLocalPlans(displayWeekId));
+
+    // 然后尝试同步
+    if (isAuthenticated) {
+      setSyncing(true);
+      try {
+        const result = await syncPlans(displayWeekId);
+        setPlans(getLocalPlans(displayWeekId)); // 重新加载同步后的数据
+        if (result.fromDoc > 0 || result.toDoc > 0) {
+          setLastSyncResult(`同步完成：从云端导入 ${result.fromDoc} 条，上传 ${result.toDoc} 条`);
+          setTimeout(() => setLastSyncResult(null), 3000);
+        }
+      } catch (err) {
+        console.error('Sync failed:', err);
+      } finally {
+        setSyncing(false);
+      }
+    }
+  }, [displayWeekId, isAuthenticated]);
+
+  useEffect(() => {
+    loadPlans();
+  }, [loadPlans]);
+
   const stats = calculateStats(plans);
 
   if (!isAuthenticated) {
@@ -71,9 +102,30 @@ export default function Week() {
         {/* 统计卡片 */}
         <StatsCard stats={stats} dateRange={dateRange} />
 
+        {/* 同步状态提示 */}
+        {(isSyncing || lastSyncResult) && (
+          <div
+            className={`mb-4 p-3 rounded-lg text-sm ${
+              isSyncing ? 'bg-blue-900/50 text-blue-300' : 'bg-green-900/50 text-green-300'
+            }`}
+          >
+            {isSyncing ? '⏳ 正在与飞书文档同步...' : lastSyncResult}
+          </div>
+        )}
+
         {/* 操作栏 */}
         <div className="flex items-center justify-between my-6">
-          <h2 className="text-xl font-semibold">📈 交易记录</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-semibold">📈 交易记录</h2>
+            <button
+              onClick={loadPlans}
+              disabled={isSyncing}
+              className="text-sm text-slate-400 hover:text-white disabled:text-slate-600"
+              title="刷新同步"
+            >
+              🔄
+            </button>
+          </div>
           <Link
             to={`/plan/new?week=${displayWeekId}`}
             className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"

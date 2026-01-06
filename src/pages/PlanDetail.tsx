@@ -8,6 +8,8 @@ import {
   getStatusColor,
   getDirectionLabel,
   getDirectionColor,
+  calculateHoldingDuration,
+  TIME_FRAME_LABELS,
 } from '../types/plan';
 import ReviewForm, { type ReviewFormData } from '../components/ReviewForm';
 
@@ -121,6 +123,11 @@ export default function PlanDetail() {
               <span className={`font-medium ${directionColor}`}>
                 {getDirectionLabel(plan.direction)}
               </span>
+              {plan.timeFrame && (
+                <span className="text-sm text-slate-400 bg-slate-700 px-2 py-1 rounded">
+                  {TIME_FRAME_LABELS[plan.timeFrame]}
+                </span>
+              )}
             </div>
             {plan.status === 'closed' && plan.profitLoss !== undefined && (
               <span
@@ -166,9 +173,43 @@ export default function PlanDetail() {
             </div>
           )}
 
+          {/* 持仓时间 */}
+          {plan.openedAt && (plan.status === 'open' || plan.status === 'closed') && (
+            <div className="mb-4 p-3 bg-slate-700 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-slate-400 text-sm">开仓时间：</span>
+                  <span className="text-white text-sm">
+                    {new Date(plan.openedAt).toLocaleString('zh-CN')}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-sm">持仓时间：</span>
+                  <span className="text-blue-400 font-medium">
+                    {calculateHoldingDuration(plan.openedAt, plan.closedAt)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div>
             <h3 className="text-sm font-medium text-slate-400 mb-2">进场理由</h3>
             <p className="text-white whitespace-pre-wrap">{plan.entryReason}</p>
+
+            {/* 显示进场截图 */}
+            {plan.entryImages && plan.entryImages.length > 0 && (
+              <div className="mt-4 space-y-3">
+                {plan.entryImages.map((img) => (
+                  <img
+                    key={img.id}
+                    src={img.url}
+                    alt="进场理由截图"
+                    className="w-full rounded-lg border border-slate-600"
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

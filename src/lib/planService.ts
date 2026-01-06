@@ -6,7 +6,7 @@ import { addLocalPlan, updateLocalPlan } from './planStorage';
 /**
  * 将交易计划转换为飞书文档 Block
  */
-function planToBlocks(plan: TradePlan): Partial<DocBlock>[] {
+export function planToBlocks(plan: TradePlan): Partial<DocBlock>[] {
   const statusEmoji: Record<string, string> = {
     planned: '📋',
     open: '🔵',

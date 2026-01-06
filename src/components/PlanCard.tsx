@@ -5,6 +5,8 @@ import {
   getStatusColor,
   getDirectionLabel,
   getDirectionColor,
+  calculateHoldingDuration,
+  TIME_FRAME_LABELS,
 } from '../types/plan';
 
 interface PlanCardProps {
@@ -30,6 +32,12 @@ export default function PlanCard({ plan, weekId }: PlanCardProps) {
         : 'text-red-400'
       : '';
 
+  // 计算持仓时间
+  const holdingDuration =
+    plan.openedAt && (plan.status === 'open' || plan.status === 'closed')
+      ? calculateHoldingDuration(plan.openedAt, plan.closedAt)
+      : null;
+
   return (
     <Link
       to={`/plan/${plan.id}?week=${weekId}`}
@@ -41,6 +49,11 @@ export default function PlanCard({ plan, weekId }: PlanCardProps) {
           <span className={`text-sm font-medium ${directionColor}`}>
             {getDirectionLabel(plan.direction)}
           </span>
+          {plan.timeFrame && (
+            <span className="text-xs text-slate-500 bg-slate-700 px-2 py-0.5 rounded">
+              {TIME_FRAME_LABELS[plan.timeFrame]}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {profitDisplay && (
@@ -64,6 +77,14 @@ export default function PlanCard({ plan, weekId }: PlanCardProps) {
           <span className="text-green-400">{plan.takeProfit}</span>
         </div>
       </div>
+
+      {/* 持仓时间显示 */}
+      {holdingDuration && (
+        <div className="text-sm mb-2">
+          <span className="text-slate-500">持仓：</span>
+          <span className="text-blue-400">{holdingDuration}</span>
+        </div>
+      )}
 
       <p className="text-sm text-slate-400 line-clamp-2">{plan.entryReason}</p>
     </Link>
