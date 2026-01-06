@@ -310,10 +310,14 @@ export async function deleteBlock(
 // ==================== 图片上传 ====================
 
 /**
- * 上传图片到飞书素材库
- * 返回 file_token 用于创建图片 block
+ * 上传图片到飞书文档素材库
+ * 需要指定文档 ID，返回 file_token 用于创建图片 block
  */
-async function uploadImageToMedia(imageData: string, fileName: string): Promise<string> {
+async function uploadImageToMedia(
+  documentId: string,
+  imageData: string,
+  fileName: string
+): Promise<string> {
   const userToken = await getAccessToken();
 
   const response = await fetch('/api/feishu/upload', {
@@ -325,6 +329,8 @@ async function uploadImageToMedia(imageData: string, fileName: string): Promise<
     body: JSON.stringify({
       imageData,
       file_name: fileName,
+      parent_type: 'docx_image',
+      parent_node: documentId, // 文档 ID
     }),
   });
 
@@ -362,8 +368,8 @@ export async function uploadImageToDocument(
   fileName: string
 ): Promise<string> {
   // 1. 上传图片到素材库，获取 file_token
-  console.log('[uploadImageToDocument] Uploading image to media...');
-  const fileToken = await uploadImageToMedia(imageData, fileName);
+  console.log('[uploadImageToDocument] Uploading image to media for doc:', documentId);
+  const fileToken = await uploadImageToMedia(documentId, imageData, fileName);
   console.log('[uploadImageToDocument] Got file_token:', fileToken);
 
   // 2. 创建包含 file_token 的 image block

@@ -8,6 +8,8 @@ const FEISHU_API_BASE = 'https://open.feishu.cn/open-apis';
  * Body: JSON
  *   - imageData: base64 图片数据
  *   - file_name: 文件名
+ *   - parent_type: "docx_image" (文档图片)
+ *   - parent_node: 文档 ID
  * Headers:
  *   - Authorization: Bearer <user_access_token>
  *
@@ -32,10 +34,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { file_name, imageData } = req.body;
+    const { file_name, imageData, parent_type, parent_node } = req.body;
 
     if (!imageData) {
       return res.status(400).json({ error: 'Please provide imageData as base64' });
+    }
+
+    if (!parent_node) {
+      return res.status(400).json({ error: 'Please provide parent_node (document ID)' });
     }
 
     const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
@@ -71,12 +77,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       )
     );
 
-    // parent_type 部分 - 使用 docx_file 表示文档素材
+    // parent_type 部分
     parts.push(
       Buffer.from(
         `--${boundary}\r\n` +
           `Content-Disposition: form-data; name="parent_type"\r\n\r\n` +
-          `docx_file\r\n`
+          `${parent_type || 'docx_image'}\r\n`
+      )
+    );
+
+    // parent_node 部分 (文档 ID)
+    parts.push(
+      Buffer.from(
+        `--${boundary}\r\n` +
+          `Content-Disposition: form-data; name="parent_node"\r\n\r\n` +
+          `${parent_node}\r\n`
       )
     );
 
@@ -94,7 +109,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const body = Buffer.concat(parts as Uint8Array[]);
 
-    console.log('[upload] Uploading image, size:', fileSize, 'bytes');
+    console.log(
+      '[upload] Uploading image to doc:',
+      parent_node,
+      'size:',
+      fileSize,
+      'bytes'
+    );
 
     const response = await fetch(`${FEISHU_API_BASE}/drive/v1/medias/upload_all`, {
       method: 'POST',
