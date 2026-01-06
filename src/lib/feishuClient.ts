@@ -73,7 +73,7 @@ export async function feishuFetch<T>(
   return data.data as T;
 }
 
-// ==================== 文件夹操作 ====================
+// ==================== 通用文件操作 ====================
 
 interface FolderMeta {
   token: string;
@@ -81,9 +81,38 @@ interface FolderMeta {
   type: string;
 }
 
-interface SearchResult {
-  tokens: { obj_token: string; obj_type: string }[];
+interface FileListItem {
+  token: string;
+  name: string;
+  type: string;
 }
+
+interface FileListResult {
+  files: FileListItem[];
+  has_more: boolean;
+  next_page_token?: string;
+}
+
+export async function listFolderFiles(folderToken: string): Promise<FileListItem[]> {
+  const allFiles: FileListItem[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const params = new URLSearchParams({ folder_token: folderToken });
+    if (pageToken) {
+      params.set('page_token', pageToken);
+    }
+
+    const data = await feishuFetch<FileListResult>(`/drive/v1/files?${params.toString()}`);
+
+    allFiles.push(...(data.files || []));
+    pageToken = data.has_more ? data.next_page_token : undefined;
+  } while (pageToken);
+
+  return allFiles;
+}
+
+// ==================== 文件夹操作 ====================
 
 export async function getRootFolderToken(): Promise<string> {
   const data = await feishuFetch<{ token: string }>('/drive/explorer/v2/root_folder/meta');
@@ -95,20 +124,10 @@ export async function searchFolder(
   name: string
 ): Promise<string | null> {
   try {
-    const data = await feishuFetch<SearchResult>(`/drive/v1/files/search`, {
-      method: 'POST',
-      body: JSON.stringify({
-        search_key: name,
-        folder_tokens: [folderToken],
-        obj_types: ['folder'],
-        count: 10,
-      }),
-    });
-
-    if (data.tokens && data.tokens.length > 0) {
-      return data.tokens[0].obj_token;
-    }
-    return null;
+    // 使用列表 API 查找文件夹，比搜索 API 更可靠
+    const files = await listFolderFiles(folderToken);
+    const folder = files.find((f) => f.name === name && f.type === 'folder');
+    return folder ? folder.token : null;
   } catch {
     return null;
   }
@@ -145,18 +164,6 @@ interface DocMeta {
   title: string;
 }
 
-interface FileListItem {
-  token: string;
-  name: string;
-  type: string;
-}
-
-interface FileListResult {
-  files: FileListItem[];
-  has_more: boolean;
-  next_page_token?: string;
-}
-
 export async function createDocument(folderToken: string, title: string): Promise<string> {
   const data = await feishuFetch<{ document: DocMeta }>('/docx/v1/documents', {
     method: 'POST',
@@ -166,25 +173,6 @@ export async function createDocument(folderToken: string, title: string): Promis
     }),
   });
   return data.document.document_id;
-}
-
-export async function listFolderFiles(folderToken: string): Promise<FileListItem[]> {
-  const allFiles: FileListItem[] = [];
-  let pageToken: string | undefined;
-
-  do {
-    const params = new URLSearchParams({ folder_token: folderToken });
-    if (pageToken) {
-      params.set('page_token', pageToken);
-    }
-
-    const data = await feishuFetch<FileListResult>(`/drive/v1/files?${params.toString()}`);
-
-    allFiles.push(...data.files);
-    pageToken = data.has_more ? data.next_page_token : undefined;
-  } while (pageToken);
-
-  return allFiles;
 }
 
 export async function findDocumentByTitle(
@@ -245,15 +233,35 @@ interface DocumentContent {
 }
 
 export async function getDocumentContent(documentId: string): Promise<DocumentContent> {
-  const data = await feishuFetch<DocumentContent>(
-    `/docx/v1/documents/${documentId}?with_blocks=true`
-  );
+  const data = await feishuFetch<DocumentContent>(`/docx/v1/documents/${documentId}`);
   return data;
 }
 
+interface BlocksResponse {
+  items: DocBlock[];
+  has_more: boolean;
+  page_token?: string;
+}
+
 export async function getDocumentBlocks(documentId: string): Promise<DocBlock[]> {
-  const content = await getDocumentContent(documentId);
-  return content.blocks || [];
+  const allBlocks: DocBlock[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const params = new URLSearchParams({ document_revision_id: '-1', page_size: '500' });
+    if (pageToken) {
+      params.set('page_token', pageToken);
+    }
+
+    const data = await feishuFetch<BlocksResponse>(
+      `/docx/v1/documents/${documentId}/blocks?${params.toString()}`
+    );
+
+    allBlocks.push(...(data.items || []));
+    pageToken = data.has_more ? data.page_token : undefined;
+  } while (pageToken);
+
+  return allBlocks;
 }
 
 interface CreateBlockResult {
