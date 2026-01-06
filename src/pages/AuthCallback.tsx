@@ -33,10 +33,7 @@ export default function AuthCallback() {
     return (
       <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center gap-4">
         <p className="text-xl text-red-400">缺少授权码</p>
-        <button
-          onClick={() => navigate('/')}
-          className="text-blue-400 hover:text-blue-300"
-        >
+        <button onClick={() => navigate('/')} className="text-blue-400 hover:text-blue-300">
           返回首页
         </button>
       </div>
@@ -47,10 +44,7 @@ export default function AuthCallback() {
     return (
       <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center gap-4">
         <p className="text-xl text-red-400">{error}</p>
-        <button
-          onClick={() => navigate('/')}
-          className="text-blue-400 hover:text-blue-300"
-        >
+        <button onClick={() => navigate('/')} className="text-blue-400 hover:text-blue-300">
           返回首页
         </button>
       </div>

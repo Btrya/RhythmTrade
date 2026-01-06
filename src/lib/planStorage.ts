@@ -80,7 +80,11 @@ export function planToBlocks(plan: TradePlan): Partial<DocBlock>[] {
       text: {
         elements: [
           { text_run: { content: '实际出场：', text_element_style: { bold: true } } },
-          { text_run: { content: `${plan.actualExit ?? '-'} | 盈亏：${plan.profitLoss?.toFixed(2) ?? '-'}%` } },
+          {
+            text_run: {
+              content: `${plan.actualExit ?? '-'} | 盈亏：${plan.profitLoss?.toFixed(2) ?? '-'}%`,
+            },
+          },
         ],
       },
     });
@@ -101,9 +105,7 @@ export function planToBlocks(plan: TradePlan): Partial<DocBlock>[] {
       blocks.push({
         block_type: 2,
         text: {
-          elements: [
-            { text_run: { content: `执行评分：${'⭐'.repeat(plan.executionScore)}` } },
-          ],
+          elements: [{ text_run: { content: `执行评分：${'⭐'.repeat(plan.executionScore)}` } }],
         },
       });
     }

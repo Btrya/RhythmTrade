@@ -81,8 +81,18 @@ export default function ReviewForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       <h3 className="flex items-center gap-2 text-lg font-bold">
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00ff88] to-[#00f5d4] flex items-center justify-center">
-          <svg className="w-4 h-4 text-[#0a0e17]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="w-4 h-4 text-[#0a0e17]"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
         </div>
         平仓复盘
@@ -105,16 +115,19 @@ export default function ReviewForm({
           {errors.actualExit && (
             <p className="mt-2 text-sm text-[#ff3366] flex items-center gap-1">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
               {errors.actualExit}
             </p>
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-[#94a3b8] mb-2">
-            盈亏百分比
-          </label>
+          <label className="block text-sm font-medium text-[#94a3b8] mb-2">盈亏百分比</label>
           <div
             className={`w-full bg-[#111827] border rounded-xl px-4 py-3 font-bold text-xl ${
               data.profitLoss
@@ -124,7 +137,9 @@ export default function ReviewForm({
                 : 'border-[#ffffff10] text-[#64748b]'
             }`}
           >
-            {data.profitLoss ? `${Number(data.profitLoss) >= 0 ? '+' : ''}${data.profitLoss}%` : '-'}
+            {data.profitLoss
+              ? `${Number(data.profitLoss) >= 0 ? '+' : ''}${data.profitLoss}%`
+              : '-'}
           </div>
         </div>
       </div>
@@ -171,7 +186,12 @@ export default function ReviewForm({
         {errors.reviewNote && (
           <p className="mt-2 text-sm text-[#ff3366] flex items-center gap-1">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
             {errors.reviewNote}
           </p>
@@ -200,7 +220,12 @@ export default function ReviewForm({
           ) : (
             <>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
               完成平仓
             </>

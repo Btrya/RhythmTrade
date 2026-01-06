@@ -16,7 +16,7 @@ interface FeishuResponse<T> {
   data?: T;
 }
 
-async function getAccessToken(): Promise<string> {
+export async function getAccessToken(): Promise<string> {
   const stored = loadAuth();
 
   if (!stored.accessToken) {
@@ -46,10 +46,7 @@ async function getAccessToken(): Promise<string> {
 /**
  * 通过 Vercel 代理调用飞书 API
  */
-export async function feishuFetch<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
+export async function feishuFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const userToken = await getAccessToken();
 
   // 通过代理调用飞书 API
@@ -119,10 +116,7 @@ export async function getRootFolderToken(): Promise<string> {
   return data.token;
 }
 
-export async function searchFolder(
-  folderToken: string,
-  name: string
-): Promise<string | null> {
+export async function searchFolder(folderToken: string, name: string): Promise<string | null> {
   try {
     // 使用列表 API 查找文件夹，比搜索 API 更可靠
     const files = await listFolderFiles(folderToken);
@@ -310,4 +304,62 @@ export async function deleteBlock(
     `/docx/v1/documents/${documentId}/blocks/${parentBlockId}/children/${blockId}?document_revision_id=-1`,
     { method: 'DELETE' }
   );
+}
+
+// ==================== 图片上传 ====================
+
+/**
+ * 上传图片到飞书文档
+ * 步骤：
+ * 1. 先创建空的 image block
+ * 2. 然后上传图片到该 block
+ */
+export async function uploadImageToDocument(
+  documentId: string,
+  parentBlockId: string,
+  imageData: string, // base64 data URL
+  fileName: string
+): Promise<string> {
+  // 1. 创建空的 image block
+  const createResult = await appendBlocks(documentId, parentBlockId, [
+    {
+      block_type: 27, // image block
+      image: {},
+    },
+  ]);
+
+  const imageBlockId = createResult[0]?.block_id;
+  if (!imageBlockId) {
+    throw new Error('Failed to create image block');
+  }
+
+  // 2. 上传图片到该 block
+  const userToken = await getAccessToken();
+
+  // 通过代理上传 (使用 JSON 发送 base64 数据)
+  const response = await fetch('/api/feishu/upload', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${userToken}`,
+    },
+    body: JSON.stringify({
+      imageData,
+      file_name: fileName,
+      parent_type: 'docx_image',
+      parent_node: imageBlockId,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to upload image: ${error}`);
+  }
+
+  const result = await response.json();
+  if (result.code !== 0) {
+    throw new Error(`Upload failed: ${result.msg}`);
+  }
+
+  return imageBlockId;
 }

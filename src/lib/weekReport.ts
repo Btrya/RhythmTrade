@@ -35,10 +35,7 @@ export async function getOrCreateWeekReport(weekId: string): Promise<string> {
 /**
  * 初始化周报文档结构
  */
-export async function initWeekReportContent(
-  documentId: string,
-  weekId: string
-): Promise<void> {
+export async function initWeekReportContent(documentId: string, weekId: string): Promise<void> {
   console.log('[initWeekReportContent] Getting document blocks...');
   const blocks = await getDocumentBlocks(documentId);
   console.log('[initWeekReportContent] Found blocks:', blocks.length);
@@ -72,17 +69,13 @@ export async function initWeekReportContent(
     {
       block_type: 2, // text
       text: {
-        elements: [
-          { text_run: { content: `📅 ${dateRange}` } },
-        ],
+        elements: [{ text_run: { content: `📅 ${dateRange}` } }],
       },
     },
     {
       block_type: 2,
       text: {
-        elements: [
-          { text_run: { content: '交易次数：0 | 已平仓：0 | 持仓中：0' } },
-        ],
+        elements: [{ text_run: { content: '交易次数：0 | 已平仓：0 | 持仓中：0' } }],
       },
     },
     // 分割线

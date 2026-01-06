@@ -25,11 +25,7 @@ export default function Home() {
   if (isAuthenticated && user) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col items-center justify-center text-white px-4">
-        <img
-          src={user.avatar_url}
-          alt={user.name}
-          className="w-20 h-20 rounded-full mb-4"
-        />
+        <img src={user.avatar_url} alt={user.name} className="w-20 h-20 rounded-full mb-4" />
         <h2 className="text-2xl font-bold mb-2">{user.name}</h2>
         <p className="text-slate-400 mb-6">已登录</p>
         <div className="flex gap-4">
@@ -55,9 +51,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col items-center justify-center text-white px-4">
       <h1 className="text-5xl font-bold mb-4 text-center">RhythmTrade</h1>
-      <p className="text-xl text-slate-400 mb-8 text-center">
-        计划你的交易，交易你的计划
-      </p>
+      <p className="text-xl text-slate-400 mb-8 text-center">计划你的交易，交易你的计划</p>
       <button
         onClick={redirectToFeishuAuth}
         className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 rounded-lg transition-colors flex items-center gap-2"

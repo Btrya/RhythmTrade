@@ -99,9 +99,7 @@ export default function PlanCard({ plan, weekId, index = 0 }: PlanCardProps) {
               {profitDisplay}
             </span>
           )}
-          <span className={`status-badge ${getStatusClass()}`}>
-            {getStatusLabel(plan.status)}
-          </span>
+          <span className={`status-badge ${getStatusClass()}`}>{getStatusLabel(plan.status)}</span>
         </div>
       </div>
 
@@ -117,7 +115,9 @@ export default function PlanCard({ plan, weekId, index = 0 }: PlanCardProps) {
         </div>
         <div className="bg-[#111827]/50 rounded-lg p-3 text-center">
           <div className="text-[10px] uppercase tracking-wider text-[#64748b] mb-1">止盈</div>
-          <div className="text-sm font-semibold text-[#00ff88] number-ticker">{plan.takeProfit}</div>
+          <div className="text-sm font-semibold text-[#00ff88] number-ticker">
+            {plan.takeProfit}
+          </div>
         </div>
         <div className="bg-[#111827]/50 rounded-lg p-3 text-center">
           <div className="text-[10px] uppercase tracking-wider text-[#64748b] mb-1">盈亏比</div>
@@ -127,9 +127,7 @@ export default function PlanCard({ plan, weekId, index = 0 }: PlanCardProps) {
 
       {/* 进场理由预览 */}
       <div className="relative">
-        <p className="text-sm text-[#94a3b8] line-clamp-2 leading-relaxed">
-          {plan.entryReason}
-        </p>
+        <p className="text-sm text-[#94a3b8] line-clamp-2 leading-relaxed">{plan.entryReason}</p>
         {/* 渐变遮罩 */}
         <div className="absolute bottom-0 right-0 w-20 h-full bg-gradient-to-l from-[#1a1f2e] to-transparent pointer-events-none" />
       </div>

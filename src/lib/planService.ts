@@ -1,6 +1,12 @@
 import type { TradePlan } from '../types/plan';
+import { TIME_FRAME_LABELS } from '../types/plan';
 import { getOrCreateWeekReport, initWeekReportContent } from './weekReport';
-import { appendBlocks, getDocumentBlocks, type DocBlock } from './feishuClient';
+import {
+  appendBlocks,
+  getDocumentBlocks,
+  uploadImageToDocument,
+  type DocBlock,
+} from './feishuClient';
 import { addLocalPlan, updateLocalPlan } from './planStorage';
 
 /**
@@ -54,6 +60,19 @@ export function planToBlocks(plan: TradePlan): Partial<DocBlock>[] {
     },
   ];
 
+  // 时间周期
+  if (plan.timeFrame) {
+    blocks.push({
+      block_type: 2,
+      text: {
+        elements: [
+          { text_run: { content: '时间周期：', text_element_style: { bold: true } } },
+          { text_run: { content: TIME_FRAME_LABELS[plan.timeFrame] } },
+        ],
+      },
+    });
+  }
+
   // 仓位和风险备注
   if (plan.positionSize || plan.riskNote) {
     const parts: string[] = [];
@@ -78,8 +97,51 @@ export function planToBlocks(plan: TradePlan): Partial<DocBlock>[] {
     },
   });
 
+  // 进场图片说明（图片会单独上传）
+  if (plan.entryImages && plan.entryImages.length > 0) {
+    blocks.push({
+      block_type: 2,
+      text: {
+        elements: [
+          {
+            text_run: {
+              content: `📷 进场截图 (${plan.entryImages.length} 张)：`,
+              text_element_style: { bold: true },
+            },
+          },
+        ],
+      },
+    });
+  }
+
+  // 开仓时间
+  if (plan.openedAt) {
+    blocks.push({
+      block_type: 2,
+      text: {
+        elements: [
+          { text_run: { content: '开仓时间：', text_element_style: { bold: true } } },
+          { text_run: { content: new Date(plan.openedAt).toLocaleString('zh-CN') } },
+        ],
+      },
+    });
+  }
+
   // 如果已平仓，添加复盘信息
   if (plan.status === 'closed') {
+    // 平仓时间
+    if (plan.closedAt) {
+      blocks.push({
+        block_type: 2,
+        text: {
+          elements: [
+            { text_run: { content: '平仓时间：', text_element_style: { bold: true } } },
+            { text_run: { content: new Date(plan.closedAt).toLocaleString('zh-CN') } },
+          ],
+        },
+      });
+    }
+
     blocks.push({
       block_type: 2,
       text: {
@@ -185,6 +247,26 @@ export async function createPlan(weekId: string, plan: TradePlan): Promise<void>
     console.log('[createPlan] Writing blocks:', JSON.stringify(blocks));
     const result = await appendBlocks(documentId, parentId, blocks);
     console.log('[createPlan] Append result:', JSON.stringify(result));
+
+    // 5. 上传图片（如果有）
+    if (plan.entryImages && plan.entryImages.length > 0) {
+      console.log('[createPlan] Uploading', plan.entryImages.length, 'images...');
+      for (let i = 0; i < plan.entryImages.length; i++) {
+        const image = plan.entryImages[i];
+        try {
+          const imageBlockId = await uploadImageToDocument(
+            documentId,
+            parentId,
+            image.url,
+            `entry_image_${i + 1}.png`
+          );
+          console.log('[createPlan] Image uploaded, block ID:', imageBlockId);
+        } catch (imgError) {
+          console.error('[createPlan] Failed to upload image:', imgError);
+          // 图片上传失败不影响整体流程
+        }
+      }
+    }
 
     console.log('Plan written to Feishu document:', documentId);
   } catch (error) {

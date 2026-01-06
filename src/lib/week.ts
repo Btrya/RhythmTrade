@@ -58,8 +58,7 @@ export function formatWeekRange(weekId: string): string {
   const range = parseWeekId(weekId);
   if (!range) return weekId;
 
-  const formatDate = (d: Date) =>
-    `${d.getMonth() + 1}/${d.getDate()}`;
+  const formatDate = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
 
   return `${formatDate(range.start)} - ${formatDate(range.end)}`;
 }

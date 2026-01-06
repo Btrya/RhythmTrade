@@ -27,7 +27,10 @@ export function saveAuth(data: {
   localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.access_token);
   localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refresh_token);
   localStorage.setItem(STORAGE_KEYS.EXPIRES_AT, String(now + data.expires_in * 1000));
-  localStorage.setItem(STORAGE_KEYS.REFRESH_EXPIRES_AT, String(now + data.refresh_expires_in * 1000));
+  localStorage.setItem(
+    STORAGE_KEYS.REFRESH_EXPIRES_AT,
+    String(now + data.refresh_expires_in * 1000)
+  );
   localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(data.user));
 }
 
@@ -41,7 +44,10 @@ export function updateTokens(data: {
   localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, data.access_token);
   localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, data.refresh_token);
   localStorage.setItem(STORAGE_KEYS.EXPIRES_AT, String(now + data.expires_in * 1000));
-  localStorage.setItem(STORAGE_KEYS.REFRESH_EXPIRES_AT, String(now + data.refresh_expires_in * 1000));
+  localStorage.setItem(
+    STORAGE_KEYS.REFRESH_EXPIRES_AT,
+    String(now + data.refresh_expires_in * 1000)
+  );
 }
 
 export function loadAuth(): StoredAuth {

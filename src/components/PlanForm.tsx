@@ -36,7 +36,17 @@ const defaultData: PlanFormData = {
 };
 
 const TIME_FRAMES: TimeFrame[] = [
-  '1min', '5min', '15min', '30min', '1h', '4h', '1day', '1week', '1month', '3month', '12month',
+  '1min',
+  '5min',
+  '15min',
+  '30min',
+  '1h',
+  '4h',
+  '1day',
+  '1week',
+  '1month',
+  '3month',
+  '12month',
 ];
 
 export default function PlanForm({
@@ -186,7 +196,12 @@ export default function PlanForm({
             >
               <span className="flex items-center justify-center gap-2">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 10l7-7m0 0l7 7m-7-7v18"
+                  />
                 </svg>
                 做多
               </span>
@@ -202,7 +217,12 @@ export default function PlanForm({
             >
               <span className="flex items-center justify-center gap-2">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                  />
                 </svg>
                 做空
               </span>
@@ -218,10 +238,17 @@ export default function PlanForm({
             value={data.timeFrame}
             onChange={(e) => updateField('timeFrame', e.target.value as TimeFrame)}
             className="crypto-input w-full px-4 py-3 rounded-xl appearance-none cursor-pointer"
-            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '20px' }}
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 12px center',
+              backgroundSize: '20px',
+            }}
           >
             {TIME_FRAMES.map((tf) => (
-              <option key={tf} value={tf}>{TIME_FRAME_LABELS[tf]}</option>
+              <option key={tf} value={tf}>
+                {TIME_FRAME_LABELS[tf]}
+              </option>
             ))}
           </select>
         </div>
@@ -243,7 +270,9 @@ export default function PlanForm({
               placeholder="0.00"
               className="w-full bg-transparent text-xl font-bold focus:outline-none number-ticker"
             />
-            {errors.plannedEntry && <p className="mt-2 text-xs text-[#ff3366]">{errors.plannedEntry}</p>}
+            {errors.plannedEntry && (
+              <p className="mt-2 text-xs text-[#ff3366]">{errors.plannedEntry}</p>
+            )}
           </div>
           <div className="bg-[#111827]/50 rounded-xl p-4 border border-[#ff3366]/20">
             <div className="text-xs text-[#ff3366] uppercase tracking-wider mb-2">止损价</div>
@@ -267,7 +296,9 @@ export default function PlanForm({
               placeholder="0.00"
               className="w-full bg-transparent text-xl font-bold text-[#00ff88] focus:outline-none number-ticker"
             />
-            {errors.takeProfit && <p className="mt-2 text-xs text-[#ff3366]">{errors.takeProfit}</p>}
+            {errors.takeProfit && (
+              <p className="mt-2 text-xs text-[#ff3366]">{errors.takeProfit}</p>
+            )}
           </div>
         </div>
 
@@ -275,7 +306,9 @@ export default function PlanForm({
         {rrRatio && (
           <div className="mt-4 flex items-center gap-2 text-sm">
             <span className="text-[#64748b]">盈亏比:</span>
-            <span className={`font-bold ${Number(rrRatio) >= 2 ? 'text-[#00ff88]' : Number(rrRatio) >= 1 ? 'text-[#fbbf24]' : 'text-[#ff3366]'}`}>
+            <span
+              className={`font-bold ${Number(rrRatio) >= 2 ? 'text-[#00ff88]' : Number(rrRatio) >= 1 ? 'text-[#fbbf24]' : 'text-[#ff3366]'}`}
+            >
               1:{rrRatio}
             </span>
             {Number(rrRatio) >= 2 && <span className="text-[#00ff88] text-xs">优秀</span>}
@@ -299,7 +332,9 @@ export default function PlanForm({
             rows={5}
             className="crypto-input w-full px-4 py-3 rounded-xl resize-none text-sm leading-relaxed"
           />
-          {errors.entryReason && <p className="mt-2 text-sm text-[#ff3366]">{errors.entryReason}</p>}
+          {errors.entryReason && (
+            <p className="mt-2 text-sm text-[#ff3366]">{errors.entryReason}</p>
+          )}
         </div>
 
         {/* 图片预览 */}
@@ -310,20 +345,29 @@ export default function PlanForm({
             </div>
             <div className="grid grid-cols-2 gap-3">
               {data.entryImages.map((img) => (
-                <div key={img.id} className="relative group rounded-xl overflow-hidden border border-[#ffffff08]">
-                  <img
-                    src={img.url}
-                    alt="进场理由截图"
-                    className="w-full h-36 object-cover"
-                  />
+                <div
+                  key={img.id}
+                  className="relative group rounded-xl overflow-hidden border border-[#ffffff08]"
+                >
+                  <img src={img.url} alt="进场理由截图" className="w-full h-36 object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                   <button
                     type="button"
                     onClick={() => removeImage(img.id)}
                     className="absolute top-2 right-2 w-8 h-8 bg-[#ff3366] rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all transform scale-75 group-hover:scale-100"
                   >
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      className="w-4 h-4 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </div>
@@ -336,9 +380,7 @@ export default function PlanForm({
       {/* 可选字段 */}
       <div className="grid grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-[#64748b] mb-2">
-            仓位大小（可选）
-          </label>
+          <label className="block text-sm font-medium text-[#64748b] mb-2">仓位大小（可选）</label>
           <input
             type="text"
             value={data.positionSize}
@@ -348,9 +390,7 @@ export default function PlanForm({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-[#64748b] mb-2">
-            风险备注（可选）
-          </label>
+          <label className="block text-sm font-medium text-[#64748b] mb-2">风险备注（可选）</label>
           <input
             type="text"
             value={data.riskNote}

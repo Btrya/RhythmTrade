@@ -1,8 +1,22 @@
 import type { TradePlan } from '../types/plan';
-import { getLocalPlans, saveLocalPlans, addLocalPlan } from './planStorage';
+import { getLocalPlans, addLocalPlan } from './planStorage';
 import { getOrCreateWeekReport, initWeekReportContent } from './weekReport';
 import { getDocumentBlocks, appendBlocks, type DocBlock } from './feishuClient';
 import { planToBlocks } from './planService';
+
+/**
+ * 生成计划的唯一标识 - 用于匹配同一计划
+ * 使用 symbol + direction + plannedEntry + stopLoss + takeProfit 组合
+ */
+function getPlanFingerprint(plan: {
+  symbol: string;
+  direction: string;
+  plannedEntry: number;
+  stopLoss: number;
+  takeProfit: number;
+}): string {
+  return `${plan.symbol}_${plan.direction}_${plan.plannedEntry}_${plan.stopLoss}_${plan.takeProfit}`;
+}
 
 /**
  * 从飞书文档块解析交易计划
@@ -15,17 +29,17 @@ function parseBlocksToPlan(blocks: DocBlock[], startIndex: number): TradePlan | 
   const heading = block.heading3?.elements?.[0]?.text_run?.content || '';
 
   // 解析标题：📋 BTC 做多 | 计划中
-  const match = heading.match(/^([📋🔵✅🔴⚫])\s+(\w+)\s+(做多|做空)\s+\|\s+(.+)$/);
+  const match = heading.match(/^([📋🔵✅🔴⚫])\s+(\w+)\s+(做多|做空)\s+\|\s+(.+)$/u);
   if (!match) return null;
 
   const [, , symbol, directionText, statusText] = match;
 
   const direction = directionText === '做多' ? 'long' : 'short';
   const statusMap: Record<string, TradePlan['status']> = {
-    '计划中': 'planned',
-    '持仓中': 'open',
-    '已平仓': 'closed',
-    '已取消': 'cancelled',
+    计划中: 'planned',
+    持仓中: 'open',
+    已平仓: 'closed',
+    已取消: 'cancelled',
   };
   const status = statusMap[statusText] || 'planned';
 
@@ -40,12 +54,17 @@ function parseBlocksToPlan(blocks: DocBlock[], startIndex: number): TradePlan | 
   let profitLoss: number | undefined;
   let reviewNote: string | undefined;
   let executionScore: number | undefined;
+  let openedAt: string | undefined;
+  let closedAt: string | undefined;
+  let timeFrame: TradePlan['timeFrame'] | undefined;
 
-  for (let i = startIndex + 1; i < blocks.length && i < startIndex + 10; i++) {
+  for (let i = startIndex + 1; i < blocks.length && i < startIndex + 15; i++) {
     const b = blocks[i];
     if (b.block_type === 5) break; // 遇到下一个标题就停止
+    if (b.block_type === 4) break; // 遇到 heading2 就停止
 
     const text = b.text?.elements?.map((e) => e.text_run?.content || '').join('') || '';
+    if (text === '---') break; // 遇到分隔符就停止
 
     // 解析入场信息
     const priceMatch = text.match(/入场：([\d.]+)\s*\|\s*止损：([\d.]+)\s*\|\s*止盈：([\d.]+)/);
@@ -53,6 +72,27 @@ function parseBlocksToPlan(blocks: DocBlock[], startIndex: number): TradePlan | 
       plannedEntry = Number(priceMatch[1]);
       stopLoss = Number(priceMatch[2]);
       takeProfit = Number(priceMatch[3]);
+      continue;
+    }
+
+    // 解析时间周期
+    const timeFrameMatch = text.match(/时间周期：(.+)/);
+    if (timeFrameMatch) {
+      const tfText = timeFrameMatch[1].trim();
+      const tfMap: Record<string, TradePlan['timeFrame']> = {
+        '1分钟': '1min',
+        '5分钟': '5min',
+        '15分钟': '15min',
+        '30分钟': '30min',
+        '1小时': '1h',
+        '4小时': '4h',
+        日线: '1day',
+        周线: '1week',
+        月线: '1month',
+        季线: '3month',
+        年线: '12month',
+      };
+      timeFrame = tfMap[tfText];
       continue;
     }
 
@@ -69,6 +109,20 @@ function parseBlocksToPlan(blocks: DocBlock[], startIndex: number): TradePlan | 
     // 解析进场理由
     if (text.includes('进场理由：')) {
       entryReason = text.replace('进场理由：', '').trim();
+      continue;
+    }
+
+    // 解析开仓时间
+    const openTimeMatch = text.match(/开仓时间：(.+)/);
+    if (openTimeMatch) {
+      openedAt = openTimeMatch[1].trim();
+      continue;
+    }
+
+    // 解析平仓时间
+    const closeTimeMatch = text.match(/平仓时间：(.+)/);
+    if (closeTimeMatch) {
+      closedAt = closeTimeMatch[1].trim();
       continue;
     }
 
@@ -106,6 +160,9 @@ function parseBlocksToPlan(blocks: DocBlock[], startIndex: number): TradePlan | 
     positionSize,
     riskNote,
     status,
+    timeFrame,
+    openedAt,
+    closedAt,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     actualExit,
@@ -129,7 +186,7 @@ export async function readPlansFromDocument(documentId: string): Promise<TradePl
       // heading3
       const heading = block.heading3?.elements?.[0]?.text_run?.content || '';
       // 检查是否是交易计划标题（以状态 emoji 开头）
-      if (/^[📋🔵✅🔴⚫]/.test(heading)) {
+      if (/^[📋🔵✅🔴⚫]/u.test(heading)) {
         const plan = parseBlocksToPlan(blocks, i);
         if (plan) {
           plans.push(plan);
@@ -146,8 +203,9 @@ export async function readPlansFromDocument(documentId: string): Promise<TradePl
  * 策略：
  * 1. 读取文档中的计划
  * 2. 读取 localStorage 中的计划
- * 3. 将文档中有但本地没有的计划加入本地
- * 4. 将本地有但文档中没有的计划写入文档
+ * 3. 使用指纹匹配避免重复
+ * 4. 将文档中有但本地没有的计划加入本地
+ * 5. 将本地有但文档中没有的计划写入文档
  */
 export async function syncPlans(weekId: string): Promise<{
   fromDoc: number;
@@ -171,20 +229,22 @@ export async function syncPlans(weekId: string): Promise<{
   let fromDoc = 0;
   let toDoc = 0;
 
+  // 建立指纹集合
+  const localFingerprints = new Set(localPlans.map(getPlanFingerprint));
+  const docFingerprints = new Set(docPlans.map(getPlanFingerprint));
+
+  console.log('[syncPlans] Local fingerprints:', Array.from(localFingerprints));
+  console.log('[syncPlans] Doc fingerprints:', Array.from(docFingerprints));
+
   // 将文档中有但本地没有的计划加入本地
-  const localIds = new Set(localPlans.map((p) => p.id));
-  const docIds = new Set(docPlans.map((p) => p.id));
-
   for (const docPlan of docPlans) {
-    // 查找本地是否有相同 symbol 和 createdAt 的计划
-    const existsLocally = localPlans.some(
-      (lp) => lp.symbol === docPlan.symbol && lp.plannedEntry === docPlan.plannedEntry
-    );
-
-    if (!existsLocally) {
+    const fingerprint = getPlanFingerprint(docPlan);
+    if (!localFingerprints.has(fingerprint)) {
+      // 生成新的本地 ID
+      docPlan.id = `plan_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       addLocalPlan(weekId, docPlan);
       fromDoc++;
-      console.log('[syncPlans] Added to local from doc:', docPlan.symbol);
+      console.log('[syncPlans] Added to local from doc:', docPlan.symbol, fingerprint);
     }
   }
 
@@ -194,20 +254,18 @@ export async function syncPlans(weekId: string): Promise<{
 
   if (pageBlock) {
     for (const localPlan of localPlans) {
-      // 检查文档中是否已有相同的计划
-      const existsInDoc = docPlans.some(
-        (dp) => dp.symbol === localPlan.symbol && dp.plannedEntry === localPlan.plannedEntry
-      );
-
-      if (!existsInDoc) {
+      const fingerprint = getPlanFingerprint(localPlan);
+      if (!docFingerprints.has(fingerprint)) {
         try {
           const planBlocks = planToBlocks(localPlan);
           await appendBlocks(documentId, pageBlock.block_id, planBlocks);
           toDoc++;
-          console.log('[syncPlans] Written to doc from local:', localPlan.symbol);
+          console.log('[syncPlans] Written to doc from local:', localPlan.symbol, fingerprint);
         } catch (err) {
           console.error('[syncPlans] Failed to write plan to doc:', err);
         }
+      } else {
+        console.log('[syncPlans] Already in doc, skipping:', localPlan.symbol, fingerprint);
       }
     }
   }
