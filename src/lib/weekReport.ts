@@ -39,18 +39,23 @@ export async function initWeekReportContent(
   documentId: string,
   weekId: string
 ): Promise<void> {
+  console.log('[initWeekReportContent] Getting document blocks...');
   const blocks = await getDocumentBlocks(documentId);
+  console.log('[initWeekReportContent] Found blocks:', blocks.length);
 
   // 如果文档已有内容，不重复初始化
   if (blocks.length > 1) {
+    console.log('[initWeekReportContent] Document already has content, skipping init');
     return;
   }
 
   // 找到 page block（根 block）
   const pageBlock = blocks.find((b) => b.block_type === 1);
   if (!pageBlock) {
+    console.log('[initWeekReportContent] No page block found!');
     return;
   }
+  console.log('[initWeekReportContent] Page block ID:', pageBlock.block_id);
 
   const dateRange = formatWeekRange(weekId);
 
@@ -134,7 +139,9 @@ export async function initWeekReportContent(
     },
   ];
 
-  await appendBlocks(documentId, pageBlock.block_id, initialBlocks);
+  console.log('[initWeekReportContent] Appending initial blocks...');
+  const result = await appendBlocks(documentId, pageBlock.block_id, initialBlocks);
+  console.log('[initWeekReportContent] Append result:', JSON.stringify(result));
 }
 
 /**

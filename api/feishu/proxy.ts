@@ -78,9 +78,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const url = `${FEISHU_API_BASE}${endpoint}`;
     console.log(`Proxying to Feishu: ${method} ${url}`);
+    if (body) {
+      console.log('Request body:', JSON.stringify(body));
+    }
 
     const response = await fetch(url, fetchOptions);
     const data = await response.json();
+
+    console.log('Feishu response:', JSON.stringify(data));
 
     return res.status(200).json(data);
   } catch (error) {

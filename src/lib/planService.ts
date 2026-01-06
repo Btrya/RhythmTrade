@@ -167,15 +167,24 @@ export async function createPlan(weekId: string, plan: TradePlan): Promise<void>
 
   try {
     // 2. 获取或创建周报文档
+    console.log('[createPlan] Getting/creating week report for:', weekId);
     const documentId = await getOrCreateWeekReport(weekId);
+    console.log('[createPlan] Document ID:', documentId);
+
+    console.log('[createPlan] Initializing document content...');
     await initWeekReportContent(documentId, weekId);
+    console.log('[createPlan] Document initialized');
 
     // 3. 找到插入位置
+    console.log('[createPlan] Finding insert position...');
     const { parentId } = await findTradeRecordInsertPosition(documentId);
+    console.log('[createPlan] Parent block ID:', parentId);
 
     // 4. 转换为 blocks 并写入
     const blocks = planToBlocks(plan);
-    await appendBlocks(documentId, parentId, blocks);
+    console.log('[createPlan] Writing blocks:', JSON.stringify(blocks));
+    const result = await appendBlocks(documentId, parentId, blocks);
+    console.log('[createPlan] Append result:', JSON.stringify(result));
 
     console.log('Plan written to Feishu document:', documentId);
   } catch (error) {

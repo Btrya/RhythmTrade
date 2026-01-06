@@ -266,7 +266,7 @@ export async function appendBlocks(
   blocks: Partial<DocBlock>[]
 ): Promise<DocBlock[]> {
   const data = await feishuFetch<CreateBlockResult>(
-    `/docx/v1/documents/${documentId}/blocks/${parentBlockId}/children`,
+    `/docx/v1/documents/${documentId}/blocks/${parentBlockId}/children?document_revision_id=-1`,
     {
       method: 'POST',
       body: JSON.stringify({
@@ -284,7 +284,7 @@ export async function updateBlock(
   block: Partial<DocBlock>
 ): Promise<DocBlock> {
   const data = await feishuFetch<{ block: DocBlock }>(
-    `/docx/v1/documents/${documentId}/blocks/${blockId}`,
+    `/docx/v1/documents/${documentId}/blocks/${blockId}?document_revision_id=-1`,
     {
       method: 'PATCH',
       body: JSON.stringify(block),
@@ -299,7 +299,7 @@ export async function deleteBlock(
   blockId: string
 ): Promise<void> {
   await feishuFetch(
-    `/docx/v1/documents/${documentId}/blocks/${parentBlockId}/children/${blockId}`,
+    `/docx/v1/documents/${documentId}/blocks/${parentBlockId}/children/${blockId}?document_revision_id=-1`,
     { method: 'DELETE' }
   );
 }
