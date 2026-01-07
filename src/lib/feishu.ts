@@ -9,7 +9,7 @@ const SCOPES = [
   'docx:document', // 文档查看编辑
   'docx:document:readonly', // 文档只读
   'contact:user.base:readonly', // 用户基本信息
-  'docs:document.media:upload', // 文档媒体上传
+  'im:resource', // 上传图片 (im/v1/images)
 ];
 
 export function getFeishuAuthUrl(): string {

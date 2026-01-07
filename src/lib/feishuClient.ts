@@ -310,14 +310,10 @@ export async function deleteBlock(
 // ==================== 图片上传 ====================
 
 /**
- * 上传图片到飞书文档素材库
- * 需要指定 image block ID，返回 file_token
+ * 上传图片到飞书，获取 image_key
+ * 使用 im/v1/images API
  */
-async function uploadImageToMedia(
-  imageBlockId: string,
-  imageData: string,
-  fileName: string
-): Promise<string> {
+async function uploadImage(imageData: string, fileName: string): Promise<string> {
   const userToken = await getAccessToken();
 
   const response = await fetch('/api/feishu/upload', {
@@ -329,8 +325,6 @@ async function uploadImageToMedia(
     body: JSON.stringify({
       imageData,
       file_name: fileName,
-      parent_type: 'docx_image',
-      parent_node: imageBlockId, // image block ID
     }),
   });
 
@@ -340,27 +334,26 @@ async function uploadImageToMedia(
   }
 
   const result = await response.json();
-  console.log('[uploadImageToMedia] Response:', JSON.stringify(result));
+  console.log('[uploadImage] Response:', JSON.stringify(result));
 
   if (result.code !== 0) {
     throw new Error(`Upload failed: ${result.msg}`);
   }
 
-  // 返回 file_token
-  const fileToken = result.data?.file_token;
-  if (!fileToken) {
-    throw new Error('No file_token in response');
+  // 返回 image_key
+  const imageKey = result.data?.image_key;
+  if (!imageKey) {
+    throw new Error('No image_key in response');
   }
 
-  return fileToken;
+  return imageKey;
 }
 
 /**
  * 上传图片到飞书文档
- * 飞书文档图片上传流程：
- * 1. 先创建空的 image block，获取 block_id
- * 2. 再上传图片到素材库，parent_node 填 image block_id
- * 3. 图片自动关联到该 block
+ * 流程：
+ * 1. 使用 im/v1/images API 上传图片，获取 image_key
+ * 2. 用 image_key 作为 token 创建 image block
  */
 export async function uploadImageToDocument(
   documentId: string,
@@ -368,11 +361,19 @@ export async function uploadImageToDocument(
   imageData: string, // base64 data URL
   fileName: string
 ): Promise<string> {
-  // 1. 先创建空的 image block
-  console.log('[uploadImageToDocument] Creating empty image block...');
+  // 1. 上传图片获取 image_key
+  console.log('[uploadImageToDocument] Uploading image...');
+  const imageKey = await uploadImage(imageData, fileName);
+  console.log('[uploadImageToDocument] Got image_key:', imageKey);
+
+  // 2. 用 image_key 创建 image block
+  console.log('[uploadImageToDocument] Creating image block with token...');
   const createResult = await appendBlocks(documentId, parentBlockId, [
     {
       block_type: 27, // image block
+      image: {
+        token: imageKey,
+      },
     },
   ]);
 
@@ -380,12 +381,7 @@ export async function uploadImageToDocument(
   if (!imageBlockId) {
     throw new Error('Failed to create image block');
   }
-  console.log('[uploadImageToDocument] Empty image block created:', imageBlockId);
 
-  // 2. 上传图片到素材库，parent_node 填 image block id
-  console.log('[uploadImageToDocument] Uploading image to block:', imageBlockId);
-  const fileToken = await uploadImageToMedia(imageBlockId, imageData, fileName);
-  console.log('[uploadImageToDocument] Image uploaded, file_token:', fileToken);
-
+  console.log('[uploadImageToDocument] Image block created:', imageBlockId);
   return imageBlockId;
 }

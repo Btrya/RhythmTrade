@@ -7,13 +7,11 @@ const FEISHU_API_BASE = 'https://open.feishu.cn/open-apis';
  * 前端调用: POST /api/feishu/upload
  * Body: JSON
  *   - imageData: base64 图片数据
- *   - file_name: 文件名
- *   - parent_type: "docx_image" (文档图片)
- *   - parent_node: 文档 ID
+ *   - file_name: 文件名 (可选)
  * Headers:
  *   - Authorization: Bearer <user_access_token>
  *
- * 返回: { code: 0, data: { file_token: "xxx" } }
+ * 返回: { code: 0, data: { image_key: "xxx" } }
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -34,14 +32,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { file_name, imageData, parent_type, parent_node } = req.body;
+    const { file_name, imageData } = req.body;
 
     if (!imageData) {
       return res.status(400).json({ error: 'Please provide imageData as base64' });
-    }
-
-    if (!parent_node) {
-      return res.status(400).json({ error: 'Please provide parent_node (document ID)' });
     }
 
     const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
@@ -51,56 +45,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const boundary = '----WebKitFormBoundary' + Math.random().toString(36).slice(2);
     const fileName = file_name || 'image.png';
 
-    // 计算文件大小
-    const fileSize = binaryData.length;
-
     // 手动构建 multipart body
     const parts: Buffer[] = [];
 
-    // file 部分
+    // image 部分 (图片文件)
     parts.push(
       Buffer.from(
         `--${boundary}\r\n` +
-          `Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n` +
+          `Content-Disposition: form-data; name="image"; filename="${fileName}"\r\n` +
           `Content-Type: image/png\r\n\r\n`
       )
     );
     parts.push(binaryData);
     parts.push(Buffer.from('\r\n'));
 
-    // file_name 部分
+    // image_type 部分
     parts.push(
       Buffer.from(
         `--${boundary}\r\n` +
-          `Content-Disposition: form-data; name="file_name"\r\n\r\n` +
-          `${fileName}\r\n`
-      )
-    );
-
-    // parent_type 部分
-    parts.push(
-      Buffer.from(
-        `--${boundary}\r\n` +
-          `Content-Disposition: form-data; name="parent_type"\r\n\r\n` +
-          `${parent_type || 'docx_image'}\r\n`
-      )
-    );
-
-    // parent_node 部分 (文档 ID)
-    parts.push(
-      Buffer.from(
-        `--${boundary}\r\n` +
-          `Content-Disposition: form-data; name="parent_node"\r\n\r\n` +
-          `${parent_node}\r\n`
-      )
-    );
-
-    // size 部分
-    parts.push(
-      Buffer.from(
-        `--${boundary}\r\n` +
-          `Content-Disposition: form-data; name="size"\r\n\r\n` +
-          `${fileSize}\r\n`
+          `Content-Disposition: form-data; name="image_type"\r\n\r\n` +
+          `message\r\n`
       )
     );
 
@@ -109,15 +73,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const body = Buffer.concat(parts as Uint8Array[]);
 
-    console.log(
-      '[upload] Uploading image to doc:',
-      parent_node,
-      'size:',
-      fileSize,
-      'bytes'
-    );
+    console.log('[upload] Uploading image, size:', binaryData.length, 'bytes');
 
-    const response = await fetch(`${FEISHU_API_BASE}/drive/v1/medias/upload_all`, {
+    // 使用 im/v1/images API 上传图片
+    const response = await fetch(`${FEISHU_API_BASE}/im/v1/images`, {
       method: 'POST',
       headers: {
         Authorization: authHeader,
