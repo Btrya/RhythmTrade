@@ -311,10 +311,10 @@ export async function deleteBlock(
 
 /**
  * 上传图片到飞书文档素材库
- * 需要指定文档 ID，返回 file_token 用于创建图片 block
+ * 需要指定 image block ID，返回 file_token
  */
 async function uploadImageToMedia(
-  documentId: string,
+  imageBlockId: string,
   imageData: string,
   fileName: string
 ): Promise<string> {
@@ -330,7 +330,7 @@ async function uploadImageToMedia(
       imageData,
       file_name: fileName,
       parent_type: 'docx_image',
-      parent_node: documentId, // 文档 ID
+      parent_node: imageBlockId, // image block ID
     }),
   });
 
@@ -357,9 +357,10 @@ async function uploadImageToMedia(
 
 /**
  * 上传图片到飞书文档
- * 步骤：
- * 1. 先上传图片到素材库，获取 file_token
- * 2. 然后创建包含 file_token 的 image block
+ * 飞书文档图片上传流程：
+ * 1. 先创建空的 image block，获取 block_id
+ * 2. 再上传图片到素材库，parent_node 填 image block_id
+ * 3. 图片自动关联到该 block
  */
 export async function uploadImageToDocument(
   documentId: string,
@@ -367,19 +368,11 @@ export async function uploadImageToDocument(
   imageData: string, // base64 data URL
   fileName: string
 ): Promise<string> {
-  // 1. 上传图片到素材库，获取 file_token
-  console.log('[uploadImageToDocument] Uploading image to media for doc:', documentId);
-  const fileToken = await uploadImageToMedia(documentId, imageData, fileName);
-  console.log('[uploadImageToDocument] Got file_token:', fileToken);
-
-  // 2. 创建包含 file_token 的 image block
-  console.log('[uploadImageToDocument] Creating image block with token...');
+  // 1. 先创建空的 image block
+  console.log('[uploadImageToDocument] Creating empty image block...');
   const createResult = await appendBlocks(documentId, parentBlockId, [
     {
       block_type: 27, // image block
-      image: {
-        token: fileToken,
-      },
     },
   ]);
 
@@ -387,7 +380,12 @@ export async function uploadImageToDocument(
   if (!imageBlockId) {
     throw new Error('Failed to create image block');
   }
+  console.log('[uploadImageToDocument] Empty image block created:', imageBlockId);
 
-  console.log('[uploadImageToDocument] Image block created:', imageBlockId);
+  // 2. 上传图片到素材库，parent_node 填 image block id
+  console.log('[uploadImageToDocument] Uploading image to block:', imageBlockId);
+  const fileToken = await uploadImageToMedia(imageBlockId, imageData, fileName);
+  console.log('[uploadImageToDocument] Image uploaded, file_token:', fileToken);
+
   return imageBlockId;
 }
